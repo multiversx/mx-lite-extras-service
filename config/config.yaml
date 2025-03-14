@@ -5,6 +5,7 @@ apps:
     gatewayUrl: ${GATEWAY_URL}
     jwtSecret: ''
     recaptchaSecret: ''
+    hrp: 'erd'
     faucetPrivateKeyMode: 'mnemonic' # 'mnemonic' or 'pem'
     faucetMnemonic: 'find filter man earth citizen student grit limit intact unlock soon sell glass arm join mutual burger horror ghost vapor phrase build artefact alley'
     faucetPemPath: ''

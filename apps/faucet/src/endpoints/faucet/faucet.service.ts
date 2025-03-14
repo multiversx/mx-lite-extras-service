@@ -23,6 +23,7 @@ export class FaucetService {
   faucetAddress: string = '';
   signer?: UserSigner;
   enabled: boolean = false;
+  hrp = 'erd';
 
   constructor(
     private readonly cachingService: CacheService,
@@ -40,9 +41,10 @@ export class FaucetService {
       const pemContent = readFileSync(this.apiConfigService.config.faucetPemPath);
       secretKey = UserSecretKey.fromPem(pemContent.toString(), this.apiConfigService.config.faucetPemIndex ?? 0);
     }
+    this.hrp = this.apiConfigService.config.hrp ? this.apiConfigService.config.hrp : 'erd';
     this.signer = new UserSigner(secretKey);
-    this.faucetAddress = this.signer.getAddress().bech32();
-    this.faucetAccount = new Account(new Address(this.faucetAddress));
+    this.faucetAddress = this.signer.getAddress(this.hrp).bech32();
+    this.faucetAccount = new Account(new Address(this.faucetAddress, this.hrp));
     this.enabled = this.faucetAddress.length > 0;
   }
 
@@ -102,9 +104,9 @@ export class FaucetService {
       chainID: networkConfig.ChainID,
       gasLimit: networkConfig.MinGasLimit,
       gasPrice: networkConfig.MinGasPrice,
-      receiver: new Address(address),
+      receiver: new Address(address, this.hrp),
       value: this.apiConfigService.config.faucetAmount,
-      sender: new Address(this.faucetAddress),
+      sender: new Address(this.faucetAddress, this.hrp),
     });
 
     const txNonce = nonce ?? await this.getNonce();
@@ -152,7 +154,7 @@ export class FaucetService {
 
     if (isNft) {
       const tokenNonceHex = faucetToken.split('-')[2];
-      dataField = new TransactionPayload(`ESDTNFTTransfer@${tokenHex}@${tokenNonceHex}@${tokenAmountHex}@${new Address(address).hex()}`);
+      dataField = new TransactionPayload(`ESDTNFTTransfer@${tokenHex}@${tokenNonceHex}@${tokenAmountHex}@${new Address(address, this.hrp).hex()}`);
       receiverAddress = this.faucetAddress;
     }
 
@@ -160,9 +162,9 @@ export class FaucetService {
       chainID: networkConfig.ChainID,
       gasPrice: networkConfig.MinGasPrice,
       gasLimit: 500000,
-      receiver: new Address(receiverAddress),
+      receiver: new Address(receiverAddress, this.hrp),
       data: dataField,
-      sender: new Address(this.faucetAddress),
+      sender: new Address(this.faucetAddress, this.hrp),
     });
   }
 
