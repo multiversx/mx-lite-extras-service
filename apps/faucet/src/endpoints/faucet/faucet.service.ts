@@ -1,15 +1,23 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Account, Address, Transaction, TransactionPayload } from '@multiversx/sdk-core';
+import {
+  Account,
+  Address,
+  Transaction,
+  TransactionPayload,
+} from '@multiversx/sdk-core';
 import { Mnemonic, UserSigner } from '@multiversx/sdk-wallet';
 import { FaucetSettings } from './entities/faucet.settings';
-import { NetworkConfig, ProxyNetworkProvider } from '@multiversx/sdk-network-providers/out';
+import {
+  NetworkConfig,
+  ProxyNetworkProvider,
+} from '@multiversx/sdk-network-providers/out';
 import qs from 'qs';
 import { readFileSync } from 'fs';
 import { UserSecretKey } from '@multiversx/sdk-wallet/out';
 import { ApiService } from '@multiversx/sdk-nestjs-http';
 import { CacheService } from '@multiversx/sdk-nestjs-cache';
 import { CacheInfo } from '@libs/common';
-import { AddressUtils, Constants } from '@multiversx/sdk-nestjs-common';
+import { Constants } from '@multiversx/sdk-nestjs-common';
 import { AppConfigService } from '../../config/app-config.service';
 
 @Injectable()
@@ -31,14 +39,24 @@ export class FaucetService {
   ) {
     this.logger = new Logger(FaucetService.name);
 
-    this.provider = new ProxyNetworkProvider(this.apiConfigService.config.gatewayUrl);
+    this.provider = new ProxyNetworkProvider(
+      this.apiConfigService.config.gatewayUrl,
+    );
     const privateKeyMode = this.apiConfigService.config.faucetPrivateKeyMode;
     let secretKey;
     if (privateKeyMode === 'mnemonic') {
-      secretKey = Mnemonic.fromString(this.apiConfigService.config.faucetMnemonic).deriveKey();
-    } else { // pem file
-      const pemContent = readFileSync(this.apiConfigService.config.faucetPemPath);
-      secretKey = UserSecretKey.fromPem(pemContent.toString(), this.apiConfigService.config.faucetPemIndex ?? 0);
+      secretKey = Mnemonic.fromString(
+        this.apiConfigService.config.faucetMnemonic,
+      ).deriveKey();
+    } else {
+      // pem file
+      const pemContent = readFileSync(
+        this.apiConfigService.config.faucetPemPath,
+      );
+      secretKey = UserSecretKey.fromPem(
+        pemContent.toString(),
+        this.apiConfigService.config.faucetPemIndex ?? 0,
+      );
     }
     this.signer = new UserSigner(secretKey);
     this.faucetAddress = this.signer.getAddress().bech32();
@@ -62,7 +80,12 @@ export class FaucetService {
     return this.networkConfig;
   }
 
-  async retrieveFunds(address: string, nonce: number | undefined, clientIp: string, captcha: string): Promise<boolean> {
+  async retrieveFunds(
+    address: string,
+    nonce: number | undefined,
+    clientIp: string,
+    captcha: string,
+  ): Promise<boolean> {
     if (!this.enabled) {
       throw new Error('Faucet not enabled');
     }
@@ -75,7 +98,7 @@ export class FaucetService {
       throw new Error('No provider initialized');
     }
 
-    if (!AddressUtils.isAddressValid(address)) {
+    if (!this.isAddressValid(address)) {
       throw new Error('Invalid bech32 address');
     }
 
@@ -92,7 +115,9 @@ export class FaucetService {
     }
 
     if (address !== this.faucetAddress) {
-      const isAddressUsed = await this.cachingService.get(CacheInfo.FaucetAddress(address).key);
+      const isAddressUsed = await this.cachingService.get(
+        CacheInfo.FaucetAddress(address).key,
+      );
       if (isAddressUsed) {
         return false;
       }
@@ -107,9 +132,11 @@ export class FaucetService {
       sender: new Address(this.faucetAddress),
     });
 
-    const txNonce = nonce ?? await this.getNonce();
+    const txNonce = nonce ?? (await this.getNonce());
 
-    this.logger.log(`Sending faucet xEGLD to address '${address}' with nonce '${txNonce}', ip '${clientIp}', chain ID '${networkConfig.ChainID.valueOf()}', captcha '${captcha}'`);
+    this.logger.log(
+      `Sending faucet xEGLD to address '${address}' with nonce '${txNonce}', ip '${clientIp}', chain ID '${networkConfig.ChainID.valueOf()}', captcha '${captcha}'`,
+    );
 
     tx.setNonce(txNonce);
 
@@ -125,7 +152,9 @@ export class FaucetService {
       const nonce2 = await this.getNonce();
       tx2.setNonce(nonce2);
 
-      this.logger.log(`Sending faucet token to address '${address}' with nonce '${nonce2}', ip '${clientIp}'`);
+      this.logger.log(
+        `Sending faucet token to address '${address}' with nonce '${nonce2}', ip '${clientIp}'`,
+      );
 
       const signature2 = await this.signer.sign(tx2.serializeForSigning());
       tx2.applySignature(signature2);
@@ -136,23 +165,41 @@ export class FaucetService {
     await this.cachingService.set(
       CacheInfo.FaucetAddress(address).key,
       true,
-      Constants.oneSecond() * this.apiConfigService.config.faucetCooldownSameAddressInSec,
+      Constants.oneSecond() *
+        this.apiConfigService.config.faucetCooldownSameAddressInSec,
     );
 
     return true;
   }
 
-  private getTransaction(address: string, faucetToken: string, networkConfig: NetworkConfig): Transaction {
-    const tokenHex = this.padHex(Buffer.from(faucetToken.split('-').slice(0, 2).join('-'), 'ascii').toString('hex'));
-    const tokenAmountHex = this.padHex(BigInt(this.apiConfigService.config.faucetTokenAmount).toString(16));
+  private getTransaction(
+    address: string,
+    faucetToken: string,
+    networkConfig: NetworkConfig,
+  ): Transaction {
+    const tokenHex = this.padHex(
+      Buffer.from(
+        faucetToken.split('-').slice(0, 2).join('-'),
+        'ascii',
+      ).toString('hex'),
+    );
+    const tokenAmountHex = this.padHex(
+      BigInt(this.apiConfigService.config.faucetTokenAmount).toString(16),
+    );
 
     const isNft = faucetToken.split('-').length === 3;
-    let dataField = new TransactionPayload(`ESDTTransfer@${tokenHex}@${tokenAmountHex}`);
+    let dataField = new TransactionPayload(
+      `ESDTTransfer@${tokenHex}@${tokenAmountHex}`,
+    );
     let receiverAddress = address;
 
     if (isNft) {
       const tokenNonceHex = faucetToken.split('-')[2];
-      dataField = new TransactionPayload(`ESDTNFTTransfer@${tokenHex}@${tokenNonceHex}@${tokenAmountHex}@${new Address(address).hex()}`);
+      dataField = new TransactionPayload(
+        `ESDTNFTTransfer@${tokenHex}@${tokenNonceHex}@${tokenAmountHex}@${new Address(
+          address,
+        ).hex()}`,
+      );
       receiverAddress = this.faucetAddress;
     }
 
@@ -171,7 +218,11 @@ export class FaucetService {
     if (!value && value !== 0) {
       const accountNonce = await this.getLatestNonce();
 
-      await this.cachingService.set(CacheInfo.FaucetNonce.key, accountNonce, CacheInfo.FaucetNonce.ttl);
+      await this.cachingService.set(
+        CacheInfo.FaucetNonce.key,
+        accountNonce,
+        CacheInfo.FaucetNonce.ttl,
+      );
 
       return accountNonce;
     }
@@ -195,7 +246,7 @@ export class FaucetService {
   }
 
   private padHex(value: string): string {
-    return (value.length % 2 ? '0' + value : value);
+    return value.length % 2 ? '0' + value : value;
   }
 
   getSettings(): FaucetSettings {
@@ -204,21 +255,40 @@ export class FaucetService {
     return {
       address: this.faucetAddress,
       amount: this.apiConfigService.config.faucetAmount,
-      token: faucetToken ? faucetToken.split('-').slice(0, 2).join('-') : undefined,
-      tokenAmount: this.apiConfigService.config.faucetTokenAmount ? this.apiConfigService.config.faucetTokenAmount : undefined,
+      token: faucetToken
+        ? faucetToken.split('-').slice(0, 2).join('-')
+        : undefined,
+      tokenAmount: this.apiConfigService.config.faucetTokenAmount
+        ? this.apiConfigService.config.faucetTokenAmount
+        : undefined,
       recaptchaBypass: this.shouldBypassCaptchaCheck(),
     };
   }
 
-  private async validateRecaptcha(recaptcha: string, clientIp: string | undefined): Promise<boolean> {
+  private async validateRecaptcha(
+    recaptcha: string,
+    clientIp: string | undefined,
+  ): Promise<boolean> {
     try {
-      const result = await this.apiService.post('https://www.google.com/recaptcha/api/siteverify', qs.stringify({
-        secret: this.apiConfigService.config.faucetRecaptchaSecret,
-        response: recaptcha,
-        remoteip: clientIp,
-      }));
+      const result = await this.apiService.post(
+        'https://www.google.com/recaptcha/api/siteverify',
+        qs.stringify({
+          secret: this.apiConfigService.config.faucetRecaptchaSecret,
+          response: recaptcha,
+          remoteip: clientIp,
+        }),
+      );
 
       return result?.data?.success ?? false;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  private isAddressValid(address: string): boolean {
+    try {
+      Address.newFromBech32(address);
+      return true;
     } catch (error) {
       return false;
     }
