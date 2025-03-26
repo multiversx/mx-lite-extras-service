@@ -29,6 +29,7 @@ import '@multiversx/sdk-nestjs-common/lib/utils/extensions/number.extensions';
 import '@multiversx/sdk-nestjs-common/lib/utils/extensions/string.extensions';
 import { AppConfigService } from './config/app-config.service';
 import { CommonConfigService } from '@libs/common/config/common.config.service';
+import { LibraryConfig } from '@multiversx/sdk-core/out';
 
 async function bootstrap() {
   const publicApp = await NestFactory.create(PublicAppModule);
@@ -42,6 +43,8 @@ async function bootstrap() {
   const appConfigService = publicApp.get<AppConfigService>(AppConfigService);
   const commonConfigService = publicApp.get<CommonConfigService>(CommonConfigService);
   const metricsService = privateApp.get<MetricsService>(MetricsService);
+
+  LibraryConfig.DefaultAddressHrp = appConfigService.config.hrp ?? 'erd';
 
   const globalInterceptors: NestInterceptor[] = [];
   globalInterceptors.push(new LoggingInterceptor(metricsService));
