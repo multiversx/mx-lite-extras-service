@@ -8,6 +8,7 @@ export interface Config {
       gatewayUrl: string;
       jwtSecret: string;
       recaptchaSecret: string;
+      hrp: string;
       faucetPrivateKeyMode: string;
       faucetMnemonic: string;
       faucetPemPath: string;
